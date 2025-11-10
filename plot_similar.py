@@ -1,0 +1,83 @@
+import os
+import sys
+import getopt
+import matplotlib.pyplot as plt
+from getsimilar import get_images
+from plotfunctions import get_image, add_border, set_axes
+
+models = [m for m in os.listdir("pickles") if os.path.isdir(os.path.join("pickles", m)) & (m != '.ipynb_checkpoints')]
+model = models[0]
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "i:m:h", ['image=', 'model=', 'help'])
+except getopt.GetoptError:
+    print("Usage: python <filename.py> -i image -m model")
+    print("Name of the image should be in the format: artist-name_image-name[.png or .jpg]")
+    print("To see available models use -h or --help")
+    sys.exit(2)
+if not opts:
+    print("Image name is required")
+    sys.exit(2)
+else:
+    m = True
+    i = True
+    for opt, arg in opts:
+        if opt in ('-i', '--image'):
+            input_image = arg
+            i = False
+        elif opt in ('-m', '--model'):
+            model = arg
+            m = False
+        elif opt in ('-h', '--help'):
+            print("Usage: python <filename.py> -i image -m model")
+            print("Name of the image should be in the format: artist-name_image-name[.png or .jpg]")
+            print("Available models: {0}\nDefault model: {1}".format((', '.join(models)), model))
+            sys.exit()
+        else:
+            print("Check your arguments")
+            sys.exit(2)
+    if m:
+        print("No model given. Using default: {}".format(model))
+    if i:
+        print("Image name is required")
+        sys.exit(2)
+
+# Normalize input: accept either a bare filename or a path (e.g., resized/filename.jpg)
+if os.path.sep in input_image or '/' in input_image:
+    input_image = os.path.basename(input_image)
+
+folder = "similar_images"
+os.makedirs(folder, exist_ok = True)
+
+input_image, images, values = get_images(input_image, model)
+
+columns = 3
+rows = 3
+
+print("Creating figure")
+fig = plt.figure(figsize=(20, 15))
+img = get_image(input_image)
+img = add_border(img, 12)
+ax = fig.add_subplot(rows, columns, 1)
+set_axes(ax, input_image, query = True, model = model)
+plt.imshow(img)
+img.close()
+    
+ax = []
+    
+similar_count = min(8, len(images))
+for idx in range(similar_count):
+    link = images[idx]
+    img = get_image(link)
+    ax.append(fig.add_subplot(rows, columns, idx + 2))
+    set_axes(ax[-1], link, value=values[idx])
+    plt.imshow(img)
+    img.close()
+
+plt.subplots_adjust(hspace = 0.45)
+
+print("Saving figure")
+plt.savefig(os.path.join(folder, input_image), dpi = 300, bbox_inches = 'tight')
+plt.clf()
+
+print("Figure with top similar images stored in {0} folder as {1}".format(folder, input_image))
